@@ -3887,32 +3887,51 @@ RUSTDESK_KEY = server_config.get("key", "")
 # 設定主視窗預設大小並置中於螢幕 (預設寬度較寬以容納右側按鈕)
 try:
     gui.update_idletasks()
-    # 設定最小寬度，讓視窗高度能依內容自適應
+    # 先取得元件要求尺寸，再決定最終視窗大小以便精準置中
     desired_w = 1300
     try:
         gui.minsize(desired_w, 200)
     except Exception:
         pass
-    gui.update_idletasks()
-    w = gui.winfo_width() or gui.winfo_reqwidth()
-    h = gui.winfo_height() or gui.winfo_reqheight()
-    sw = gui.winfo_screenwidth()
-    sh = gui.winfo_screenheight()
-    # 先決定最終的視窗尺寸
-    final_w = max(w, desired_w)
-    final_h = h
-    # 根據最終尺寸計算中心位置
+    try:
+        gui.update_idletasks()
+    except Exception:
+        pass
+
+    try:
+        req_w = gui.winfo_reqwidth()
+        req_h = gui.winfo_reqheight()
+    except Exception:
+        req_w = desired_w
+        req_h = 200
+
+    final_w = max(req_w, desired_w)
+    final_h = max(req_h, 200)
+
+    try:
+        sw = gui.winfo_screenwidth()
+        sh = gui.winfo_screenheight()
+    except Exception:
+        sw = 800
+        sh = 600
+
     x = max((sw - final_w) // 2, 0)
     y = max((sh - final_h) // 2, 0)
-    # 設定視窗位置和尺寸
+
+    # 使用包含寬高的 geometry 來設定位置，確保置中精準
     try:
         gui.geometry(f"{final_w}x{final_h}+{x}+{y}")
+        try:
+            gui.minsize(final_w, 200)
+        except Exception:
+            pass
     except Exception:
         try:
             gui.geometry(f"+{x}+{y}")
         except Exception:
             pass
-    # 設定完位置後再顯示視窗
+
+    # 顯示視窗
     gui.deiconify()
     gui.lift()
     gui.focus_force()
