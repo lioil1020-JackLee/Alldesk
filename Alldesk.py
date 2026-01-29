@@ -2085,16 +2085,11 @@ def show_server_config_dialog():
 
     # 置中視窗
     try:
+        # 計算所需大小但保持隱藏，避免 WM 先放到左上角再移動造成閃動
         try:
-            dialog.deiconify()
+            dialog.update_idletasks()
         except Exception:
             pass
-        try:
-            dialog.wait_visibility()
-        except Exception:
-            pass
-        dialog.update()
-        dialog.update_idletasks()
 
         def _center_dialog():
             try:
@@ -2403,7 +2398,7 @@ def normalize_client_fields(client: dict) -> dict:
             port = str(int(port))
         else:
             port = str(port).strip()
-            if port.endswith('.0'):
+            if port.endswith(".0"):
                 port = port[:-2]
         # 若為空或非數字，保留空字串
         if port and not port.isdigit():
@@ -2795,16 +2790,11 @@ def edit_client(section: str, client: dict, container, on_connect):
 
     # 現在所有元件已建立，依內容重新計算建議尺寸並置中視窗
     try:
+        # 計算所需大小但保持隱藏，避免 WM 先放到左上角再移動造成閃動
         try:
-            dialog.deiconify()
+            dialog.update_idletasks()
         except Exception:
             pass
-        try:
-            dialog.wait_visibility()
-        except Exception:
-            pass
-        dialog.update()
-        dialog.update_idletasks()
 
         def _center_dialog():
             try:
@@ -3755,6 +3745,8 @@ class TightVNC:
 
 gui = tk.Tk()
 gui.title("Alldesk")
+# 先隱藏視窗，避免在左上角閃現
+gui.withdraw()
 # 嘗試載入應用程式圖示 lioil.ico（支援開發與打包情況）
 try:
     icon_candidates = [
@@ -3906,18 +3898,29 @@ try:
     h = gui.winfo_height() or gui.winfo_reqheight()
     sw = gui.winfo_screenwidth()
     sh = gui.winfo_screenheight()
-    x = max((sw - w) // 2, 0)
-    y = max((sh - h) // 2, 0)
-    # 若目前寬度小於期望, 將寬度提升但不強制變更高度
+    # 先決定最終的視窗尺寸
+    final_w = max(w, desired_w)
+    final_h = h
+    # 根據最終尺寸計算中心位置
+    x = max((sw - final_w) // 2, 0)
+    y = max((sh - final_h) // 2, 0)
+    # 設定視窗位置和尺寸
     try:
-        new_w = max(w, desired_w)
-        gui.geometry(f"{new_w}x{h}+{x}+{y}")
+        gui.geometry(f"{final_w}x{final_h}+{x}+{y}")
     except Exception:
         try:
             gui.geometry(f"+{x}+{y}")
         except Exception:
             pass
+    # 設定完位置後再顯示視窗
+    gui.deiconify()
+    gui.lift()
+    gui.focus_force()
 except Exception:
-    pass
+    # 如果設定失敗，至少要顯示視窗
+    try:
+        gui.deiconify()
+    except Exception:
+        pass
 
 gui.mainloop()
