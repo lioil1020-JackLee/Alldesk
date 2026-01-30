@@ -1,5 +1,745 @@
 {
-  "rustdesk": [],
-  "anydesk": [],
-  "tightvnc": []
+  "server_config": {
+    "id_server": "everdura.ddnsfree.com",
+    "relay_server": "everdura.ddnsfree.com",
+    "key": "kCC8dq5x8uvEI+fpbIsTpYhCMaMbAxpYmGv6XtR7NsY="
+  },
+  "rustdesk": [
+    {
+      "tag": "104-PC",
+      "id": "162136755",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "CM2.0",
+      "id": "223150760",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "EV-PC",
+      "id": "328779081",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "FEABC-PC",
+      "id": "533392223",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "FEABC-PC2",
+      "id": "429101551",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "gogoro-PC",
+      "id": "242765848",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "walter-PC",
+      "id": "1918380113",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "wayne-NB",
+      "id": "426677725",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "lioil-PC",
+      "id": "117767810",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "lucy-PC",
+      "id": "1352706",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "Panel-PC",
+      "id": "242765979",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "user00(蔡增仲)",
+      "id": "340337553",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "user01(蕭咸文)",
+      "id": "505507640",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "user(02)",
+      "id": "505507601",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "user03(莊宥岑)",
+      "id": "314418619",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "user04(蘇東泰)",
+      "id": "314470396",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "user05(鍾承勳)",
+      "id": "20212705",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "user06(賀欣儀)",
+      "id": "228516601",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "user07(杜睿宸)",
+      "id": "420215615",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "user08(羅伊岑)",
+      "id": "44043034",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "user09(NB)",
+      "id": "405721595",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "walter-PC",
+      "id": "118425841",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "Server-PC",
+      "id": "1857739076",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "永雋 SOYAL",
+      "id": "1416753381",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "博能科技 SOYAL",
+      "id": "1725360045",
+      "pwd": "Pntech54294093!",
+      "port": ""
+    },
+    {
+      "tag": "吳鎮耀-NB",
+      "id": "101855588",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "李秀琴-NB",
+      "id": "484004133",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "李秀暖-win11",
+      "id": "363841468",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "周信良-PC",
+      "id": "1767692325",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "邱威迪-NB",
+      "id": "379684599",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "邱威迪-PC",
+      "id": "24886589",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "邱威迪2-PC",
+      "id": "11996964",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "陳耀輝-PC",
+      "id": "23240752",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "台北地院 SCADA",
+      "id": "82987959",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "地檢署 SYSTEM",
+      "id": "1818654889",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "地檢署 SCADA",
+      "id": "382285953",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "致新科技 SCADA",
+      "id": "47398667",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "新保大樓 SCADA",
+      "id": "535728887",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "新保大樓 5F",
+      "id": "509656325",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "北投享溫泉 SCADA",
+      "id": "117558862",
+      "pwd": "Wh28928288",
+      "port": ""
+    },
+    {
+      "tag": "北投享溫泉2 SCADA",
+      "id": "1172277522",
+      "pwd": "Wh28928288",
+      "port": ""
+    },
+    {
+      "tag": "北投享溫泉3 SCADA",
+      "id": "1651963476",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "北投享溫泉(櫃台)-PC",
+      "id": "515768677",
+      "pwd": "Wh28928288",
+      "port": ""
+    },
+    {
+      "tag": "麗寶 SCADA",
+      "id": "440820085",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "寶高 SCADA",
+      "id": "373061491",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "永彰 SCADA",
+      "id": "44068066",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "PTW SCADA",
+      "id": "2068572",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "尚順 SCADA",
+      "id": "1395994989",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "LiBoDe",
+      "id": "402863565",
+      "pwd": "Blue0324!",
+      "port": ""
+    }
+  ],
+  "anydesk": [
+    {
+      "tag": "104-PC",
+      "id": "540521973",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "emily-NB",
+      "id": "1163878181",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "EV-PC",
+      "id": "1275546571",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "FEABC-PC",
+      "id": "1058831515",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "FEABC-PC2",
+      "id": "1435248711",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "gogoro-PC",
+      "id": "1828597468",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "walter-PC",
+      "id": "1665308730",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "wayne-NB",
+      "id": "636599678",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "lioil-VM",
+      "id": "467517298",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "lioil-VMM",
+      "id": "787983489",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "lioil-PC",
+      "id": "1622676015",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "lucy-PC",
+      "id": "1464756719",
+      "pwd": "Blue0324!",
+      "port": ""
+    },
+    {
+      "tag": "migo-NB",
+      "id": "170036718",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "Panel-PC",
+      "id": "1333165155",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "turbo-PC",
+      "id": "928386444",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "蔡增仲-VMM",
+      "id": "988775006",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "陳靜白-PC",
+      "id": "994167457",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "user00(蔡增仲)",
+      "id": "1353674292",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "user01(蕭咸文)",
+      "id": "1095981159",
+      "pwd": "m8KN6)kN",
+      "port": ""
+    },
+    {
+      "tag": "user02()",
+      "id": "1242096384",
+      "pwd": "U01e*$C/",
+      "port": ""
+    },
+    {
+      "tag": "user03(莊宥岑)",
+      "id": "1316892957",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "user04(蘇東泰)",
+      "id": "1017388669",
+      "pwd": "Ys_G#y6u",
+      "port": ""
+    },
+    {
+      "tag": "user05(鍾承勳)",
+      "id": "1837470523",
+      "pwd": "r_6Gx1t\\",
+      "port": ""
+    },
+    {
+      "tag": "user06(賀欣儀)",
+      "id": "1541843604",
+      "pwd": "FI=nwfo5",
+      "port": ""
+    },
+    {
+      "tag": "user07(杜睿宸)",
+      "id": "1124894043",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "user08(羅伊岑)",
+      "id": "1528929699",
+      "pwd": "A#w#82Nb",
+      "port": ""
+    },
+    {
+      "tag": "user09(NB)",
+      "id": "1286819335",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "walter-PC",
+      "id": "1361736160",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "yachun-PC",
+      "id": "1177230138",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "server-PC",
+      "id": "1228120787",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "永雋 SOYAL",
+      "id": "571812724",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "博能SOYAL",
+      "id": "516762580",
+      "pwd": "Pntech54294093!",
+      "port": ""
+    },
+    {
+      "tag": "吳鎮耀-NB",
+      "id": "1494049005",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "李秀琴-NB2",
+      "id": "1729505566",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "李秀琴-NB",
+      "id": "1689636809",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "李秀琴-phone",
+      "id": "1053939944",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "李秀暖win10",
+      "id": "556558910",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "李秀暖win11",
+      "id": "1595466432",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "周信良-PC",
+      "id": "1138660391",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "邱威迪-NB",
+      "id": "1577856617",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "邱威迪-PC",
+      "id": "1947941157",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "邱威迪2-PC",
+      "id": "1337950825",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "陳耀輝-PC",
+      "id": "1464058675",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "陳耀輝-PC2",
+      "id": "1707444300",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "彭心儀-PC",
+      "id": "623592888",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "彭雙成1-PC",
+      "id": "1817088987",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "彭雙成2-PC",
+      "id": "677482988",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "彭雙成3-PC",
+      "id": "527173757",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "游秀淳1F-PC",
+      "id": "1161780580",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "游秀淳2F-PC",
+      "id": "1626221025",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "黃睿頎-PC",
+      "id": "704592803",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "科博館",
+      "id": "378232603",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "台北地院 SCADA",
+      "id": "248082645",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "地檢署 SYSTEM",
+      "id": "1344781079",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "地檢署 SCADA",
+      "id": "1579258104",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "致新科技 SCADA",
+      "id": "719552704",
+      "pwd": "c0933976189",
+      "port": ""
+    },
+    {
+      "tag": "新保大樓 SCADA",
+      "id": "1507809143",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "新保大樓5F",
+      "id": "1839273670",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "北投享溫泉 SCADA",
+      "id": "591968037",
+      "pwd": "water28928288house",
+      "port": ""
+    },
+    {
+      "tag": "北投享溫泉2 SCADA",
+      "id": "1140316182",
+      "pwd": "water28928288house",
+      "port": ""
+    },
+    {
+      "tag": "北投享溫泉3 SCADA",
+      "id": "1906233132",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "暐順 SCADA",
+      "id": "720090893",
+      "pwd": "blue5200",
+      "port": ""
+    },
+    {
+      "tag": "麗寶 SCADA",
+      "id": "423427369",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "寶高 SCADA",
+      "id": "608630403",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "永彰 SCADA",
+      "id": "1953043777",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "PTW SCADA",
+      "id": "1196837742",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "尚順 SCADA",
+      "id": "1152555295",
+      "pwd": "Shen+8888",
+      "port": ""
+    },
+    {
+      "tag": "LiBoDe",
+      "id": "1925223104",
+      "pwd": "blue5200",
+      "port": ""
+    }
+  ],
+  "tightvnc": [
+    {
+      "tag": "lioil",
+      "id": "lioil.ddnsfree.com",
+      "pwd": "Blue0324",
+      "port": "5900"
+    },
+    {
+      "tag": "PTW",
+      "id": "ptw.ddnsfree.com",
+      "pwd": "Blue0324",
+      "port": "5900"
+    },
+    {
+      "tag": "LiBoDe",
+      "id": "libode.ddnsfree.com",
+      "pwd": "Blue0324",
+      "port": "5900"
+    },
+    {
+      "tag": "EverduraSOYAL",
+      "id": "192.168.2.6",
+      "pwd": "90328511",
+      "port": "5900"
+    },
+    {
+      "tag": "BaoGao",
+      "id": "192.168.192.80",
+      "pwd": "Blue0324",
+      "port": "49328"
+    }
+  ]
 }

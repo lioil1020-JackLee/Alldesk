@@ -3089,7 +3089,7 @@ class RustDesk:
             "privacy_mode = false\n"
             "allow_swap_key = false\n"
             "port_forwards = []\n"
-            "direct_failures = 0\n"
+            "direct_failures = 1\n"
             "disable_audio = false\n"
             "disable_clipboard = false\n"
             "enable-file-copy-paste = true\n"
@@ -3108,6 +3108,7 @@ class RustDesk:
             "custom-fps = '30'\n"
             "zoom-cursor = ''\n"
             "i444 = ''\n\n"
+            "force-always-relay = 'Y'\n\n"
             "[ui_flutter]\n"
             'wm_RemoteDesktop = \'{"width":1270.0,"height":710.0,"offsetWidth":1270.0,"offsetHeight":710.0,"isMaximized":true,"isFullscreen":false}\'\n\n'
             "[info]\n"
