@@ -1,17 +1,23 @@
+[build-system]
+requires = ["setuptools>=80.9.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "alldesk"
 version = "0.1.0"
-description = "Add your description here"
+description = "Windows GUI launcher for RustDesk, AnyDesk, and TightVNC"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "comtypes==1.4.14",
     "pywin32==311; sys_platform == 'win32'",
     "pywinauto==0.6.9; sys_platform == 'win32'",
-    "setuptools==80.9.0",
 ]
 
 [dependency-groups]
 dev = [
     "pyinstaller>=6.18.0",
 ]
+
+[tool.setuptools]
+py-modules = ["Alldesk"]
