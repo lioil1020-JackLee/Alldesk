@@ -1359,7 +1359,7 @@ def create_header_row(
     f_pwd = ttk.Frame(left_container)
     f_pwd.pack(side="left", padx=10)
     ttk.Label(f_pwd, text="密碼:").pack(side="left")
-    ent_pwd = tk.Entry(f_pwd, show="*", width=22)
+    ent_pwd = tk.Entry(f_pwd, width=22)
     ent_pwd.pack(side="left", padx=6)
 
     # 連接按鈕
@@ -2690,7 +2690,7 @@ def edit_client(section: str, client: dict, container, on_connect):
     tk.Label(
         pwd_frame, text="密碼:", font=("微軟正黑體", 11, "bold"), width=8, anchor="w"
     ).pack(side="left")
-    pwd_entry = tk.Entry(pwd_frame, width=40, show="*", font=("微軟正黑體", 10))
+    pwd_entry = tk.Entry(pwd_frame, width=40, font=("微軟正黑體", 10))
     pwd_entry.insert(0, client.get("pwd", ""))
     pwd_entry.pack(side="left", fill="x", expand=True)
 
