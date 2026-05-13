@@ -29,6 +29,55 @@ from tkinter import ttk
 from tkinter import messagebox
 from urllib.parse import quote
 
+from status_manager import StatusManager, ping_host, tcp_check
+
+
+STATUS_BUTTONS = {}
+
+STATUS_COLORS = {
+    "online": "#ff4444",
+    "offline": "#00cc66",
+    "error": "#666666",
+}
+
+rustdesk_status_manager: StatusManager | None = None
+
+
+def _client_key(section: str, client: dict) -> tuple:
+    try:
+        tag = str(client.get("tag", "") or "").strip()
+    except Exception:
+        tag = ""
+    try:
+        cid = str(client.get("id", "") or "").strip()
+    except Exception:
+        cid = ""
+    return (section, tag, cid)
+
+
+def _format_client_button_text(emoji: str, tag: str, client_id: str) -> str:
+    tag = tag or ""
+    client_id = client_id or ""
+    if tag and client_id:
+        return f"{emoji}\n{tag}\n{client_id}"
+    if tag and not client_id:
+        return f"{emoji}\n{tag}"
+    if client_id and not tag:
+        return f"{emoji}\n{client_id}"
+    return f"{emoji}"
+
+
+def _format_client_label_text(tag: str, client_id: str) -> str:
+    tag = tag or ""
+    client_id = client_id or ""
+    if tag and client_id:
+        return f"{tag}\n{client_id}"
+    if tag and not client_id:
+        return f"{tag}"
+    if client_id and not tag:
+        return f"{client_id}"
+    return ""
+
 
 def log_and_show(title: str, msg: str, level: str = "warning"):
     """簡單的 log + 顯示 helper。level 可以是 'info'/'warning'/'error'。"""
@@ -1877,7 +1926,19 @@ def load_server_config() -> dict:
 
         # 如果有伺服器設定則回傳，否則回傳預設值
         if "server_config" in data:
-            return data["server_config"]
+            cfg = data["server_config"] if isinstance(data["server_config"], dict) else {}
+            server = str(
+                cfg.get("server", "")
+                or cfg.get("id_server", "")
+                or cfg.get("relay_server", "")
+            ).strip()
+            return {
+                "server": server,
+                "key": str(cfg.get("key", "") or ""),
+                "rustdesk_api_port": int(cfg.get("rustdesk_api_port", 21114) or 21114),
+                "api_username": str(cfg.get("api_username", "") or ""),
+                "api_password": str(cfg.get("api_password", "") or ""),
+            }
         else:
             return get_default_server_config()
     except Exception:
@@ -1886,7 +1947,13 @@ def load_server_config() -> dict:
 
 def get_default_server_config() -> dict:
     """取得預設的伺服器設定。"""
-    return {"id_server": "", "relay_server": "", "key": ""}
+    return {
+        "server": "",
+        "key": "",
+        "rustdesk_api_port": 21114,
+        "api_username": "",
+        "api_password": "",
+    }
 
 
 def save_server_config(config: dict) -> bool:
@@ -1915,7 +1982,7 @@ def save_server_config(config: dict) -> bool:
 
         # 更新全域變數
         global RUSTDESK_HOST, RUSTDESK_KEY
-        RUSTDESK_HOST = config.get("id_server", "")
+        RUSTDESK_HOST = str(config.get("server", "") or "").strip()
         RUSTDESK_KEY = config.get("key", "")
 
         return True
@@ -1988,35 +2055,20 @@ def show_server_config_dialog():
     input_frame = tk.Frame(dialog)
     input_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=30, pady=5)
 
-    # ID伺服器
-    id_server_frame = tk.Frame(input_frame)
-    id_server_frame.pack(fill="x", pady=(5, 10))
+    # 伺服器
+    server_frame = tk.Frame(input_frame)
+    server_frame.pack(fill="x", pady=(5, 10))
 
     tk.Label(
-        id_server_frame,
-        text="ID伺服器:",
+        server_frame,
+        text="伺服器:",
         font=("微軟正黑體", 11, "bold"),
         width=8,
         anchor="w",
     ).pack(side="left")
-    id_server_entry = tk.Entry(id_server_frame, width=40, font=("微軟正黑體", 10))
-    id_server_entry.insert(0, current_config.get("id_server", ""))
-    id_server_entry.pack(side="left", fill="x", expand=True)
-
-    # 中繼伺服器
-    relay_server_frame = tk.Frame(input_frame)
-    relay_server_frame.pack(fill="x", pady=10)
-
-    tk.Label(
-        relay_server_frame,
-        text="中繼伺服器:",
-        font=("微軟正黑體", 11, "bold"),
-        width=8,
-        anchor="w",
-    ).pack(side="left")
-    relay_server_entry = tk.Entry(relay_server_frame, width=40, font=("微軟正黑體", 10))
-    relay_server_entry.insert(0, current_config.get("relay_server", ""))
-    relay_server_entry.pack(side="left", fill="x", expand=True)
+    server_entry = tk.Entry(server_frame, width=40, font=("微軟正黑體", 10))
+    server_entry.insert(0, current_config.get("server", ""))
+    server_entry.pack(side="left", fill="x", expand=True)
 
     # Key
     key_frame = tk.Frame(input_frame)
@@ -2029,22 +2081,97 @@ def show_server_config_dialog():
     key_entry.insert(0, current_config.get("key", ""))
     key_entry.pack(side="left", fill="x", expand=True)
 
+    # API Port（RustDesk Server API，預設 21114；若使用反向代理可填 5014 等）
+    api_port_frame = tk.Frame(input_frame)
+    api_port_frame.pack(fill="x", pady=(10, 5))
+
+    tk.Label(
+        api_port_frame,
+        text="API埠:",
+        font=("微軟正黑體", 11, "bold"),
+        width=8,
+        anchor="w",
+    ).pack(side="left")
+    api_port_entry = tk.Entry(api_port_frame, width=40, font=("微軟正黑體", 10))
+    try:
+        api_port_entry.insert(0, str(int(current_config.get("rustdesk_api_port", 21114))))
+    except Exception:
+        api_port_entry.insert(0, "21114")
+    api_port_entry.pack(side="left", fill="x", expand=True)
+
     # 分隔線
     separator2 = ttk.Separator(dialog, orient="horizontal")
     separator2.grid(row=3, column=0, columnspan=2, sticky="ew", padx=30, pady=(10, 20))
 
+    # API 帳號
+    api_user_frame = tk.Frame(input_frame)
+    api_user_frame.pack(fill="x", pady=(10, 5))
+
+    tk.Label(
+        api_user_frame,
+        text="API帳號:",
+        font=("微軟正黑體", 11, "bold"),
+        width=8,
+        anchor="w",
+    ).pack(side="left")
+    api_user_entry = tk.Entry(api_user_frame, width=40, font=("微軟正黑體", 10))
+    api_user_entry.insert(0, current_config.get("api_username", ""))
+    api_user_entry.pack(side="left", fill="x", expand=True)
+
+    # API 密碼
+    api_pass_frame = tk.Frame(input_frame)
+    api_pass_frame.pack(fill="x", pady=(10, 5))
+
+    tk.Label(
+        api_pass_frame,
+        text="API密碼:",
+        font=("微軟正黑體", 11, "bold"),
+        width=8,
+        anchor="w",
+    ).pack(side="left")
+    api_pass_entry = tk.Entry(api_pass_frame, width=40, font=("微軟正黑體", 10), show="*")
+    api_pass_entry.insert(0, current_config.get("api_password", ""))
+    api_pass_entry.pack(side="left", fill="x", expand=True)
+
+    def toggle_api_password_visibility():
+        """切換 API 密碼顯示/隱藏。"""
+        if api_pass_entry.cget("show") == "":
+            api_pass_entry.config(show="*")
+        else:
+            api_pass_entry.config(show="")
+        api_pass_entry.focus_set()
+
+    api_pass_toggle_btn = tk.Button(
+        api_pass_frame,
+        text="👁",
+        font=("微軟正黑體", 10),
+        width=3,
+        command=toggle_api_password_visibility,
+    )
+    api_pass_toggle_btn.pack(side="left", padx=(8, 0))
+
     def save_config():
         """儲存設定"""
+        port_s = api_port_entry.get().strip()
+        if not port_s.isdigit():
+            log_and_show("儲存失敗", "API埠必須是數字", "error")
+            return
+        port_v = int(port_s)
+        if port_v <= 0 or port_v > 65535:
+            log_and_show("儲存失敗", "API埠範圍必須是 1~65535", "error")
+            return
+
         new_config = {
-            "id_server": id_server_entry.get().strip(),
-            "relay_server": relay_server_entry.get().strip(),
+            "server": server_entry.get().strip(),
             "key": key_entry.get().strip(),
+            "rustdesk_api_port": port_v,
         }
+        new_config["api_username"] = api_user_entry.get().strip()
+        new_config["api_password"] = api_pass_entry.get()
 
         # 驗證不為空
         if (
-            not new_config["id_server"]
-            or not new_config["relay_server"]
+            not new_config["server"]
             or not new_config["key"]
         ):
             log_and_show("儲存失敗", "所有欄位都必須填寫", "error")
@@ -2467,6 +2594,14 @@ def create_client_buttons(
     - 支援空白處右鍵新增
     - 左鍵直接連線，右鍵編輯選單
     """
+    # 清除該 section 的舊按鈕索引（避免重建 UI 後索引指向已銷毀的 widget）
+    try:
+        for k in list(STATUS_BUTTONS.keys()):
+            if k and isinstance(k, tuple) and len(k) >= 1 and k[0] == section:
+                STATUS_BUTTONS.pop(k, None)
+    except Exception:
+        pass
+
     btn_container = ttk.Frame(container)
     btn_container.grid(row=2, column=0, columnspan=10, sticky="ew")
     # 讓容器以內容自適應高度；只有在沒有客戶時才設定最小高度
@@ -2543,15 +2678,41 @@ def create_client_buttons(
                 continue
 
             try:
+                cell = tk.Frame(btn_container, bd=0, highlightthickness=0)
+                cell.grid(row=row, column=col, padx=3, pady=3)
+
+                # 使用 Canvas 畫真實彩色圓點（避免 emoji 在某些字型下都顯示成灰圈）
+                dot = tk.Canvas(
+                    cell,
+                    width=18,
+                    height=18,
+                    bd=0,
+                    highlightthickness=0,
+                    relief="flat",
+                    bg=cell.cget("bg"),
+                )
+                dot.pack(side="top", pady=(2, 0))
+                init_color = STATUS_COLORS.get("unknown", "#9e9e9e")
+                oval = dot.create_oval(4, 4, 14, 14, fill=init_color, outline=init_color)
+
                 btn = tk.Button(
-                    btn_container,
-                    text=f"{tag}\n{client_id}",
+                    cell,
+                    text=_format_client_label_text(tag, client_id),
                     font=btn_font,
                     width=15,
-                    height=4,
+                    height=3,
                     command=(lambda c=client: on_connect(c)),
                 )
-                btn.grid(row=row, column=col, padx=3, pady=3)
+                btn.pack(side="top")
+                try:
+                    STATUS_BUTTONS[_client_key(section, client)] = {
+                        "btn": btn,
+                        "dot": dot,
+                        "oval": oval,
+                        "cell": cell,
+                    }
+                except Exception:
+                    pass
 
                 # 綁定右鍵選單到按鈕
                 btn.bind(
@@ -2560,6 +2721,22 @@ def create_client_buttons(
                         e, section, c, btn_container, on_connect
                     ),
                 )
+                # dot / cell 也綁右鍵，避免點到圓點時沒反應
+                try:
+                    dot.bind(
+                        "<Button-3>",
+                        lambda e, c=client: show_context_menu(
+                            e, section, c, btn_container, on_connect
+                        ),
+                    )
+                    cell.bind(
+                        "<Button-3>",
+                        lambda e, c=client: show_context_menu(
+                            e, section, c, btn_container, on_connect
+                        ),
+                    )
+                except Exception:
+                    pass
 
             except Exception:
                 pass
@@ -3143,9 +3320,9 @@ class RustDesk:
                 with open(cfg_file, "r", encoding="utf-8") as fr:
                     content = fr.read()
                     server_config = load_server_config()
-                    id_server = server_config.get("id_server", "")
+                    server = server_config.get("server", "")
                     # 只有在現有配置與目前設定不同時才需要重寫
-                    if id_server and id_server in content:
+                    if server and server in content:
                         need_write_cfg = False
             except Exception:
                 pass
@@ -3153,22 +3330,21 @@ class RustDesk:
         if need_write_cfg:
             # 讀取最新的伺服器設定
             server_config = load_server_config()
-            id_server = server_config.get("id_server", "")
-            relay_server = server_config.get("relay_server", "")
+            server = server_config.get("server", "")
             key = server_config.get("key", "")
 
             # 只有在伺服器設定完整時才寫入配置檔
-            if id_server and relay_server and key:
+            if server and key:
                 try:
                     cfg_data = (
-                        f"rendezvous_server = '{id_server}:21116'\n"
+                        f"rendezvous_server = '{server}:21116'\n"
                         "nat_type = 1\n"
                         "serial = 0\n"
                         "unlock_pin = ''\n"
                         "trusted_devices = ''\n\n"
                         "[options]\n"
-                        f"relay-server = '{relay_server}:21117'\n"
-                        f"custom-rendezvous-server = '{id_server}:21116'\n"
+                        f"relay-server = '{server}:21117'\n"
+                        f"custom-rendezvous-server = '{server}:21116'\n"
                         "local-ip-addr = ''\n"
                         f"key = '{key}'\n"
                         "av1-test = 'Y'\n"
@@ -3779,30 +3955,19 @@ try:
             os.path.join(str(BASE_DIR), icon_name),
         ])
     
-    # 調試輸出
-    print(f"[DEBUG] Platform: {sys.platform}")
-    print(f"[DEBUG] sys._MEIPASS: {getattr(sys, '_MEIPASS', 'NOT SET')}")
-    print(f"[DEBUG] BASE_DIR: {BASE_DIR}")
-    print(f"[DEBUG] Searching for icon in: {icon_candidates}")
-    
     icon_path = next((p for p in icon_candidates if p and os.path.exists(p)), None)
-    
-    print(f"[DEBUG] Found icon at: {icon_path}")
-    
+
     if icon_path:
         try:
             gui.iconbitmap(icon_path)
-            print(f"[DEBUG] Successfully set icon via iconbitmap")
-        except Exception as e:
-            print(f"[DEBUG] iconbitmap failed: {e}")
+        except Exception:
             try:
                 img = tk.PhotoImage(file=icon_path)
                 gui.iconphoto(False, img)
-                print(f"[DEBUG] Successfully set icon via PhotoImage")
-            except Exception as e2:
-                print(f"[DEBUG] PhotoImage also failed: {e2}")
-except Exception as e:
-    print(f"[DEBUG] Icon loading exception: {e}")
+            except Exception:
+                pass
+except Exception:
+    pass
 
 # 移除主選單
 
@@ -3878,6 +4043,12 @@ def refresh_section_data(section: str):
                 lambda c: rustdesk.run_rustdesk(c.get("id"), c.get("pwd")),
                 section,
             )
+            # 更新 RustDesk polling 的 peer 清單（不阻塞）
+            try:
+                if rustdesk_status_manager is not None:
+                    rustdesk_status_manager.set_peer_ids(_get_rustdesk_peer_ids())
+            except Exception:
+                pass
         elif section == "anydesk" and "anydesk" in globals():
             anydesk.clients = read_clients_from_json("anydesk")
             # 重新建立按鈕
@@ -3909,6 +4080,164 @@ def refresh_section_data(section: str):
         pass
 
 
+def _get_rustdesk_peer_ids() -> list[str]:
+    try:
+        clients = read_clients_from_json("rustdesk")
+    except Exception:
+        clients = []
+    peer_ids: list[str] = []
+    for c in clients:
+        try:
+            c = normalize_client_fields(c)
+            pid = str(c.get("id", "") or "").strip()
+        except Exception:
+            pid = ""
+        if pid:
+            peer_ids.append(pid)
+    return peer_ids
+
+
+def _compute_client_status(section: str, client: dict) -> str:
+    """只計算狀態燈顏色，不做任何 blocking IO。"""
+    client = normalize_client_fields(client)
+    try:
+        client_id = str(client.get("id", "") or "").strip()
+    except Exception:
+        client_id = ""
+
+    if section == "rustdesk":
+        try:
+            sm = rustdesk_status_manager
+            if sm is None:
+                return "error"
+            online = sm.get_cached_status(client_id)
+            if online is True:
+                return "online"
+            if online is False:
+                return "offline"
+            return "error"
+        except Exception:
+            return "error"
+
+    if section == "anydesk":
+        # AnyDesk 無狀態燈功能 (需要企業授權)
+        return "error"
+
+    if section == "tightvnc":
+        host = client_id
+        if not host:
+            return "error"
+        try:
+            port_s = str(client.get("port", "") or "").strip()
+        except Exception:
+            port_s = ""
+        try:
+            if port_s.isdigit():
+                return "online" if tcp_check(host, int(port_s)) else "offline"
+            return "online" if ping_host(host) else "offline"
+        except Exception:
+            return "error"
+
+    # 其他 section 目前不處理
+    return "error"
+
+
+def _refresh_status_once():
+    try:
+        # 一次讀取三個 section 的 clients，避免每顆按鈕都打開檔案
+        try:
+            rustdesk_clients = read_clients_from_json("rustdesk")
+        except Exception:
+            rustdesk_clients = []
+        try:
+            anydesk_clients = read_clients_from_json("anydesk")
+        except Exception:
+            anydesk_clients = []
+        try:
+            tightvnc_clients = read_clients_from_json("tightvnc")
+        except Exception:
+            tightvnc_clients = []
+
+        clients_by_section = {
+            "rustdesk": rustdesk_clients,
+            "anydesk": anydesk_clients,
+            "tightvnc": tightvnc_clients,
+        }
+
+        for key, w in list(STATUS_BUTTONS.items()):
+            try:
+                section, tag, cid = key
+            except Exception:
+                continue
+            try:
+                btn = w.get("btn") if isinstance(w, dict) else None
+                dot = w.get("dot") if isinstance(w, dict) else None
+                oval = w.get("oval") if isinstance(w, dict) else None
+                if not btn or not btn.winfo_exists():
+                    continue
+            except Exception:
+                continue
+
+            clients = clients_by_section.get(section, [])
+
+            target = None
+            for c in clients:
+                try:
+                    c = normalize_client_fields(c)
+                    if str(c.get("tag", "") or "").strip() == tag and str(
+                        c.get("id", "") or ""
+                    ).strip() == cid:
+                        target = c
+                        break
+                except Exception:
+                    continue
+
+            if target is None:
+                continue
+
+            status = _compute_client_status(section, target)
+            color = STATUS_COLORS.get(status, STATUS_COLORS.get("error", "#666666"))
+
+            def _apply(b=btn, d=dot, o=oval, c=color):
+                try:
+                    if d and o:
+                        try:
+                            d.itemconfig(o, fill=c, outline=c)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            try:
+                gui.after(0, _apply)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def start_status_refresh_loop():
+    try:
+        interval = 1  # UI refresh loop: 只讀 cache，快也不會卡；有變更才 repaint
+    except Exception:
+        interval = 1
+
+    def _loop():
+        while True:
+            try:
+                _refresh_status_once()
+            except Exception:
+                pass
+            time.sleep(interval)
+
+    try:
+        import threading
+
+        threading.Thread(target=_loop, daemon=True).start()
+    except Exception:
+        pass
+
+
 # 移除編輯器功能，改為按鈕右鍵編輯
 
 
@@ -3918,8 +4247,31 @@ if not ensure_json_exists():
 
 # 載入伺服器設定到全域變數
 server_config = load_server_config()
-RUSTDESK_HOST = server_config.get("id_server", "")
+RUSTDESK_HOST = server_config.get("server", "")
 RUSTDESK_KEY = server_config.get("key", "")
+
+# RustDesk 狀態：background polling thread（每 15 秒打 /api/peers），結果只放記憶體快取
+try:
+    api_port = int(server_config.get("rustdesk_api_port", 5014) or 5014)
+except Exception:
+    api_port = 5014
+try:
+    rustdesk_status_manager = StatusManager(
+        str(RUSTDESK_HOST or "").strip(),
+        api_port,
+        timeout_s=5,
+        interval_s=15,
+        cache_grace_s=60,
+        api_username=str(server_config.get("api_username", "") or ""),
+        api_password=str(server_config.get("api_password", "") or ""),
+    )
+    rustdesk_status_manager.set_peer_ids(_get_rustdesk_peer_ids())
+    rustdesk_status_manager.start()
+except Exception:
+    rustdesk_status_manager = None
+
+# 背景刷新客戶端上線狀態燈號（不阻塞 UI）
+start_status_refresh_loop()
 
 # 設定主視窗預設大小並置中於螢幕 (預設寬度較寬以容納右側按鈕)
 try:

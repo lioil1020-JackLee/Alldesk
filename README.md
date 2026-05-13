@@ -1,6 +1,6 @@
 # Alldesk
 
-Alldesk is a Windows GUI tool for managing and launching RustDesk, AnyDesk, and TightVNC connections.
+Alldesk is a Windows GUI tool for managing and launching RustDesk and TightVNC connections.
 
 This project is fully managed with `uv`, including:
 
