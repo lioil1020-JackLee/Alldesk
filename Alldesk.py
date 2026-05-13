@@ -1454,6 +1454,7 @@ def create_header_row(
         )
         btn_import.pack(side="left", padx=1)
 
+
     # 伺服器設定按鈕 (僅 RustDesk 顯示，放在匯入按鈕右邊)
     if show_server_config and right_container:
         btn_server = tk.Button(
@@ -2681,20 +2682,6 @@ def create_client_buttons(
                 cell = tk.Frame(btn_container, bd=0, highlightthickness=0)
                 cell.grid(row=row, column=col, padx=3, pady=3)
 
-                # 使用 Canvas 畫真實彩色圓點（避免 emoji 在某些字型下都顯示成灰圈）
-                dot = tk.Canvas(
-                    cell,
-                    width=18,
-                    height=18,
-                    bd=0,
-                    highlightthickness=0,
-                    relief="flat",
-                    bg=cell.cget("bg"),
-                )
-                dot.pack(side="top", pady=(2, 0))
-                init_color = STATUS_COLORS.get("unknown", "#9e9e9e")
-                oval = dot.create_oval(4, 4, 14, 14, fill=init_color, outline=init_color)
-
                 btn = tk.Button(
                     cell,
                     text=_format_client_label_text(tag, client_id),
@@ -2707,8 +2694,6 @@ def create_client_buttons(
                 try:
                     STATUS_BUTTONS[_client_key(section, client)] = {
                         "btn": btn,
-                        "dot": dot,
-                        "oval": oval,
                         "cell": cell,
                     }
                 except Exception:
@@ -2721,14 +2706,8 @@ def create_client_buttons(
                         e, section, c, btn_container, on_connect
                     ),
                 )
-                # dot / cell 也綁右鍵，避免點到圓點時沒反應
+                # cell 也綁右鍵，避免點到空白時沒反應
                 try:
-                    dot.bind(
-                        "<Button-3>",
-                        lambda e, c=client: show_context_menu(
-                            e, section, c, btn_container, on_connect
-                        ),
-                    )
                     cell.bind(
                         "<Button-3>",
                         lambda e, c=client: show_context_menu(
@@ -4013,10 +3992,24 @@ style.map(
 )
 
 # 使用一個容器,將 `Notebook` 放左邊,右邊放一個 `EXCEL` 按鈕
-container = ttk.Frame(gui)
-container.pack(fill="both", expand=True)
-notebook = ttk.Notebook(container, style="Big.TNotebook")
-notebook.pack(side="left", fill="both", expand=True)
+
+
+# Notebook（含分頁與內容）
+notebook = ttk.Notebook(gui, style="Big.TNotebook")
+notebook.pack(fill="both", expand=True)
+
+# 狀態圖例（放在主選單右上方，不參與版面寬度計算）
+legend_frame = tk.Frame(gui)
+legend_items = [
+    ("#ff4444", "online"),
+    ("#00cc66", "offline"),
+    ("#666666", "unknow")
+]
+for color, text in legend_items:
+    lbl = tk.Label(legend_frame, text="  ", bg=color, width=2, height=1)
+    lbl.pack(side="left", padx=(0,2))
+    tk.Label(legend_frame, text=text, font=("微軟正黑體", 9)).pack(side="left", padx=(0,8))
+legend_frame.place(relx=1.0, x=-8, y=8, anchor="ne")
 
 rustdesk = RustDesk(notebook)
 rustdesk.set_elements_rustdesk()
@@ -4171,8 +4164,6 @@ def _refresh_status_once():
                 continue
             try:
                 btn = w.get("btn") if isinstance(w, dict) else None
-                dot = w.get("dot") if isinstance(w, dict) else None
-                oval = w.get("oval") if isinstance(w, dict) else None
                 if not btn or not btn.winfo_exists():
                     continue
             except Exception:
@@ -4198,13 +4189,10 @@ def _refresh_status_once():
             status = _compute_client_status(section, target)
             color = STATUS_COLORS.get(status, STATUS_COLORS.get("error", "#666666"))
 
-            def _apply(b=btn, d=dot, o=oval, c=color):
+            def _apply(b=btn, c=color):
                 try:
-                    if d and o:
-                        try:
-                            d.itemconfig(o, fill=c, outline=c)
-                        except Exception:
-                            pass
+                    # 直接改變按鈕背景與前景色
+                    b.configure(bg=c, activebackground=c, fg="#ffffff" if c!="#00cc66" else "#000000")
                 except Exception:
                     pass
 
