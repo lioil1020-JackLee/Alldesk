@@ -1,0 +1,1 @@
+"""Alldesk application package."""
