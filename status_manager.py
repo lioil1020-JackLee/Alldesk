@@ -43,6 +43,9 @@ class StatusManager:
         interval_s: int = 15,
         cache_grace_s: int = 60,
         admin_online_window_s: int = 60,
+        status_change_confirm_polls: int = 4,
+        unknown_confirm_polls: int = 20,
+        min_state_hold_s: int = 8,
         headers: dict[str, str] | None = None,
         api_username: str = "",
         api_password: str = "",
@@ -53,6 +56,9 @@ class StatusManager:
         self.interval_s = int(interval_s)
         self.cache_grace_s = int(cache_grace_s)
         self.admin_online_window_s = max(5, int(admin_online_window_s))
+        self.status_change_confirm_polls = max(1, int(status_change_confirm_polls))
+        self.unknown_confirm_polls = max(1, int(unknown_confirm_polls))
+        self.min_state_hold_s = max(0, int(min_state_hold_s))
         self.headers = dict(headers or {})
         self.api_username = (api_username or "").strip()
         self.api_password = api_password or ""
@@ -63,6 +69,8 @@ class StatusManager:
 
         self._lock = threading.Lock()
         self._states: dict[str, _PeerState] = {}
+        self._pending: dict[str, tuple[bool | None, int]] = {}
+        self._last_switch_at: dict[str, float] = {}
         self._peer_ids: list[str] = []
         self._running = False
         self._thread: threading.Thread | None = None
@@ -78,6 +86,12 @@ class StatusManager:
                 cleaned.append(s)
         with self._lock:
             self._peer_ids = cleaned
+            alive = set(cleaned)
+            self._states = {k: v for k, v in self._states.items() if k in alive}
+            self._pending = {k: v for k, v in self._pending.items() if k in alive}
+            self._last_switch_at = {
+                k: v for k, v in self._last_switch_at.items() if k in alive
+            }
 
     def start(self):
         if self._running:
@@ -210,6 +224,8 @@ class StatusManager:
         req_headers = dict(self.headers)
         if token:
             req_headers["Authorization"] = f"Bearer {token}"
+        with self._lock:
+            target_ids = list(self._peer_ids)
 
         # 分頁抓取所有 peers
         url = f"https://{host}:{port}/api/peers"
@@ -261,14 +277,17 @@ class StatusManager:
                     pid = str(p.get("id", "")).strip()
                     if not pid:
                         continue
-                    online_map[pid] = bool(p.get("online", False))
+                    # 某些 RustDesk 版本的 /api/peers 只回 status, 不含 online。
+                    if "online" in p:
+                        online_map[pid] = bool(p.get("online", False))
 
                 if fetched_total or not peer_list:
                     break
                 current_page += 1
 
-            # 某些部署下 /api/peers 可能為空，改查 admin 裝置列表
-            if not online_map:
+            # 某些部署下 /api/peers 可能只回局部資料，改查 admin 裝置列表補齊
+            missing_targets = [pid for pid in target_ids if pid not in online_map]
+            if missing_targets:
                 admin_token = self._get_admin_token()
                 if admin_token:
                     admin_headers = {"api-token": admin_token}
@@ -310,10 +329,11 @@ class StatusManager:
                             except Exception:
                                 last_online = 0
                             # 後台列表沒有直接 online 欄位，使用最近心跳時間判定
-                            online_map[pid] = bool(
-                                last_online > 0
-                                and (now_ts - last_online) <= self.admin_online_window_s
-                            )
+                            if pid not in online_map:
+                                online_map[pid] = bool(
+                                    last_online > 0
+                                    and (now_ts - last_online) <= self.admin_online_window_s
+                                )
 
                         if not peer_list:
                             break
@@ -321,8 +341,9 @@ class StatusManager:
                             break
                         admin_page += 1
 
-            # 再次 fallback：讀 /api/ab 的 peers
-            if not online_map:
+            # 再次 fallback：讀 /api/ab 的 peers（僅在仍有未覆蓋目標時）
+            missing_targets = [pid for pid in target_ids if pid not in online_map]
+            if missing_targets:
                 ab_resp = requests.get(
                     f"https://{host}:{port}/api/ab",
                     headers=req_headers,
@@ -344,7 +365,8 @@ class StatusManager:
                         pid = str(p.get("id", "")).strip()
                         if not pid:
                             continue
-                        online_map[pid] = bool(p.get("online", False))
+                        if pid not in online_map:
+                            online_map[pid] = bool(p.get("online", False))
 
         except Exception:
             # 記錄 error（但不清掉舊 cache）
@@ -365,14 +387,69 @@ class StatusManager:
         with self._lock:
             target_ids = list(self._peer_ids)
             for pid in target_ids:
-                if pid in online_map:
+                raw_online: bool | None = online_map.get(pid, None)
+                prev = self._states.get(pid)
+
+                # 初次建立狀態：直接採用目前觀測值
+                if prev is None:
                     self._states[pid] = _PeerState(
-                        online=online_map[pid], updated_at=now, error_at=None
+                        online=raw_online,
+                        updated_at=now,
+                        error_at=(now if raw_online is None else None),
                     )
-                else:
-                    # API 沒回該 peer：視為 unknown（不誤判成 offline）
+                    self._last_switch_at[pid] = now
+                    self._pending.pop(pid, None)
+                    continue
+
+                stable_online = prev.online
+                if raw_online == stable_online:
+                    # 與目前穩定狀態一致：清除 pending，直接更新時間
                     self._states[pid] = _PeerState(
-                        online=None, updated_at=now, error_at=None
+                        online=stable_online,
+                        updated_at=now,
+                        error_at=None,
+                    )
+                    self._pending.pop(pid, None)
+                    continue
+
+                # 防抖：需連續 N 次觀測到相同新狀態才切換
+                pend_value, pend_count = self._pending.get(pid, (None, 0))
+                if pend_value == raw_online:
+                    pend_count += 1
+                else:
+                    pend_value = raw_online
+                    pend_count = 1
+                self._pending[pid] = (pend_value, pend_count)
+
+                confirm_needed = (
+                    self.unknown_confirm_polls
+                    if raw_online is None
+                    else self.status_change_confirm_polls
+                )
+
+                if pend_count >= confirm_needed:
+                    last_switched = self._last_switch_at.get(pid, 0.0)
+                    if (now - last_switched) >= self.min_state_hold_s:
+                        self._states[pid] = _PeerState(
+                            online=raw_online,
+                            updated_at=now,
+                            error_at=(now if raw_online is None else None),
+                        )
+                        self._last_switch_at[pid] = now
+                        self._pending.pop(pid, None)
+                    else:
+                        # 距離上次切換太近：維持穩定狀態，避免瞬時反向抖動
+                        self._states[pid] = _PeerState(
+                            online=stable_online,
+                            updated_at=now,
+                            error_at=(now if raw_online is None else None),
+                        )
+                else:
+                    # 尚未達到切換門檻：維持目前穩定狀態
+                    self._states[pid] = _PeerState(
+                        online=stable_online,
+                        updated_at=now,
+                        error_at=(now if raw_online is None else None),
                     )
 
 

@@ -2153,6 +2153,7 @@ def show_server_config_dialog():
 
     def save_config():
         """儲存設定"""
+        global server_config, RUSTDESK_HOST, RUSTDESK_KEY
         port_s = api_port_entry.get().strip()
         if not port_s.isdigit():
             log_and_show("儲存失敗", "API埠必須是數字", "error")
@@ -2180,6 +2181,13 @@ def show_server_config_dialog():
 
         # 儲存到 JSON
         if save_server_config(new_config):
+            server_config = dict(new_config)
+            RUSTDESK_HOST = str(new_config.get("server", "") or "").strip()
+            RUSTDESK_KEY = str(new_config.get("key", "") or "")
+            try:
+                _restart_rustdesk_status_manager_from_config()
+            except Exception:
+                pass
             log_and_show("儲存成功", "伺服器設定已更新", "info")
             dialog.destroy()
         else:
@@ -3309,12 +3317,13 @@ class RustDesk:
         if need_write_cfg:
             # 讀取最新的伺服器設定
             server_config = load_server_config()
-            server = server_config.get("server", "")
-            key = server_config.get("key", "")
+            server = server_config.get("server", "").strip()
+            key = server_config.get("key", "").strip()
 
-            # 只有在伺服器設定完整時才寫入配置檔
-            if server and key:
-                try:
+            # 預設中繼模式配置（即使伺服器設定為空）
+            try:
+                # 如果有完整設定則使用，否則使用空配置讓 RustDesk 使用內建預設
+                if server and key:
                     cfg_data = (
                         f"rendezvous_server = '{server}:21116'\n"
                         "nat_type = 1\n"
@@ -3328,25 +3337,41 @@ class RustDesk:
                         f"key = '{key}'\n"
                         "av1-test = 'Y'\n"
                     )
-                    tmp_cfg = cfg_file + ".tmp"
-                    try:
-                        with open(tmp_cfg, "w", encoding="utf-8", newline="\n") as fw:
-                            fw.write(cfg_data)
-                            try:
-                                fw.flush()
-                                os.fsync(fw.fileno())
-                            except Exception:
-                                pass
-                        os.replace(tmp_cfg, cfg_file)
-                    except Exception:
+                else:
+                    # 預設中繼模式配置（無自訂伺服器時）
+                    cfg_data = (
+                        "rendezvous_server = ''\n"
+                        "nat_type = 1\n"
+                        "serial = 0\n"
+                        "unlock_pin = ''\n"
+                        "trusted_devices = ''\n\n"
+                        "[options]\n"
+                        "relay-server = ''\n"
+                        "custom-rendezvous-server = ''\n"
+                        "local-ip-addr = ''\n"
+                        "key = ''\n"
+                        "av1-test = 'Y'\n"
+                    )
+                
+                tmp_cfg = cfg_file + ".tmp"
+                try:
+                    with open(tmp_cfg, "w", encoding="utf-8", newline="\n") as fw:
+                        fw.write(cfg_data)
                         try:
-                            if os.path.exists(cfg_file):
-                                os.remove(cfg_file)
-                            os.replace(tmp_cfg, cfg_file)
+                            fw.flush()
+                            os.fsync(fw.fileno())
                         except Exception:
                             pass
+                    os.replace(tmp_cfg, cfg_file)
                 except Exception:
-                    pass
+                    try:
+                        if os.path.exists(cfg_file):
+                            os.remove(cfg_file)
+                        os.replace(tmp_cfg, cfg_file)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
         # 4. 先讀取 peer 檔內容;若內容已正確,early return,絕對不要更動檔案
         try:
@@ -4090,6 +4115,42 @@ def _get_rustdesk_peer_ids() -> list[str]:
     return peer_ids
 
 
+def _restart_rustdesk_status_manager_from_config():
+    """依目前 server_config 重啟 RustDesk 狀態輪詢。"""
+    global rustdesk_status_manager
+    cfg = load_server_config()
+    host = str(cfg.get("server", "") or "").strip()
+    try:
+        api_port = int(cfg.get("rustdesk_api_port", 5014) or 5014)
+    except Exception:
+        api_port = 5014
+
+    try:
+        if rustdesk_status_manager is not None:
+            rustdesk_status_manager.stop()
+    except Exception:
+        pass
+
+    try:
+        rustdesk_status_manager = StatusManager(
+            host,
+            api_port,
+            timeout_s=5,
+            interval_s=1,
+            cache_grace_s=60,
+            admin_online_window_s=45,
+            status_change_confirm_polls=4,
+            unknown_confirm_polls=20,
+            min_state_hold_s=8,
+            api_username=str(cfg.get("api_username", "") or ""),
+            api_password=str(cfg.get("api_password", "") or ""),
+        )
+        rustdesk_status_manager.set_peer_ids(_get_rustdesk_peer_ids())
+        rustdesk_status_manager.start()
+    except Exception:
+        rustdesk_status_manager = None
+
+
 def _compute_client_status(section: str, client: dict) -> str:
     """只計算狀態燈顏色，不做任何 blocking IO。"""
     client = normalize_client_fields(client)
@@ -4239,24 +4300,7 @@ RUSTDESK_HOST = server_config.get("server", "")
 RUSTDESK_KEY = server_config.get("key", "")
 
 # RustDesk 狀態：background polling thread（每 15 秒打 /api/peers），結果只放記憶體快取
-try:
-    api_port = int(server_config.get("rustdesk_api_port", 5014) or 5014)
-except Exception:
-    api_port = 5014
-try:
-    rustdesk_status_manager = StatusManager(
-        str(RUSTDESK_HOST or "").strip(),
-        api_port,
-        timeout_s=5,
-        interval_s=15,
-        cache_grace_s=60,
-        api_username=str(server_config.get("api_username", "") or ""),
-        api_password=str(server_config.get("api_password", "") or ""),
-    )
-    rustdesk_status_manager.set_peer_ids(_get_rustdesk_peer_ids())
-    rustdesk_status_manager.start()
-except Exception:
-    rustdesk_status_manager = None
+_restart_rustdesk_status_manager_from_config()
 
 # 背景刷新客戶端上線狀態燈號（不阻塞 UI）
 start_status_refresh_loop()
