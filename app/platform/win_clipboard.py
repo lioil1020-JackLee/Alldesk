@@ -36,23 +36,45 @@ def set_clipboard_text(text: str) -> bool:
 		return False
 
 
-def paste_via_keyboard_and_enter() -> bool:
-	"""Simulate Ctrl+V then Enter for focused window."""
+def send_enter_key(times: int = 1, delay: float = 0.08) -> bool:
+	try:
+		user32 = ctypes.windll.user32
+		KEYEVENTF_KEYUP = 0x0002
+		VK_RETURN = 0x0D
+
+		for _ in range(max(1, int(times))):
+			user32.keybd_event(VK_RETURN, 0, 0, 0)
+			user32.keybd_event(VK_RETURN, 0, KEYEVENTF_KEYUP, 0)
+			time.sleep(max(0.01, float(delay)))
+		return True
+	except Exception:
+		return False
+
+
+def paste_via_keyboard() -> bool:
+	"""Simulate Ctrl+V for the focused window."""
 	try:
 		user32 = ctypes.windll.user32
 		KEYEVENTF_KEYUP = 0x0002
 		VK_CONTROL = 0x11
 		VK_V = 0x56
-		VK_RETURN = 0x0D
 
 		user32.keybd_event(VK_CONTROL, 0, 0, 0)
 		user32.keybd_event(VK_V, 0, 0, 0)
 		user32.keybd_event(VK_V, 0, KEYEVENTF_KEYUP, 0)
 		user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
+		return True
+	except Exception:
+		return False
 
-		time.sleep(0.06)
-		user32.keybd_event(VK_RETURN, 0, 0, 0)
-		user32.keybd_event(VK_RETURN, 0, KEYEVENTF_KEYUP, 0)
+
+def paste_via_keyboard_and_enter() -> bool:
+	"""Simulate Ctrl+V then Enter for focused window."""
+	try:
+		if not paste_via_keyboard():
+			return False
+		time.sleep(0.08)
+		send_enter_key(times=2, delay=0.08)
 		return True
 	except Exception:
 		return False

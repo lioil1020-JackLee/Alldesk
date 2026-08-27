@@ -185,6 +185,14 @@ def create_client_buttons(
 				cell = tk.Frame(btn_container, bd=0, highlightthickness=0)
 				cell.grid(row=row, column=col, padx=3, pady=3)
 
+				button_options = {}
+				if section == "rustdesk" and client.get("check_status") is False:
+					button_options.update(
+						bg="#666666",
+						activebackground="#666666",
+						fg="#ffffff",
+					)
+
 				btn = tk.Button(
 					cell,
 					text=format_client_label_text(tag, client_id),
@@ -192,6 +200,7 @@ def create_client_buttons(
 					width=15,
 					height=3,
 					command=(lambda c=client: on_connect(c)),
+					**button_options,
 				)
 				btn.pack(side="top")
 				try:

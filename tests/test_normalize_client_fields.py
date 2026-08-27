@@ -13,7 +13,17 @@ class NormalizeClientFieldsTests(unittest.TestCase):
 
     def test_non_dict_input_returns_empty_fields(self):
         out = normalize_client_fields(None)
-        self.assertEqual(out, {"tag": "", "id": "", "pwd": "", "port": ""})
+        self.assertEqual(
+            out, {"tag": "", "id": "", "pwd": "", "port": "", "check_status": True}
+        )
+
+    def test_check_status_defaults_to_enabled_and_parses_disabled(self):
+        enabled = normalize_client_fields({"tag": "A", "id": "1"})
+        disabled = normalize_client_fields(
+            {"tag": "B", "id": "2", "check_status": "false"}
+        )
+        self.assertIs(enabled["check_status"], True)
+        self.assertIs(disabled["check_status"], False)
 
 
 if __name__ == "__main__":

@@ -57,7 +57,7 @@ def sanitize_tag(s: str) -> str:
 
 def normalize_client_fields(client: dict) -> dict:
 	"""Normalize client dict fields and convert common malformed values."""
-	out = {"tag": "", "id": "", "pwd": "", "port": ""}
+	out = {"tag": "", "id": "", "pwd": "", "port": "", "check_status": True}
 	if not isinstance(client, dict):
 		return out
 	try:
@@ -101,5 +101,24 @@ def normalize_client_fields(client: dict) -> dict:
 	out["id"] = id_
 	out["pwd"] = pwd
 	out["port"] = port
+	out["check_status"] = status_check_enabled(client)
 	return out
+
+
+def status_check_enabled(client: dict) -> bool:
+	"""Return whether this client should be included in status polling."""
+	if not isinstance(client, dict):
+		return True
+	value = client.get("check_status", True)
+	if isinstance(value, bool):
+		return value
+	if isinstance(value, (int, float)):
+		return value != 0
+	try:
+		text = str(value).strip().lower()
+	except Exception:
+		return True
+	if text in ("0", "false", "no", "n", "off", "unchecked", "disabled"):
+		return False
+	return True
 

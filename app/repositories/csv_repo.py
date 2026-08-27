@@ -3,6 +3,7 @@
 import csv
 
 from app.repositories.json_repo import read_clients_from_json, write_clients_to_json
+from app.utils.text import status_check_enabled
 
 
 def export_to_csv(section: str, file_path: str) -> tuple[bool, str]:
@@ -14,6 +15,8 @@ def export_to_csv(section: str, file_path: str) -> tuple[bool, str]:
 	try:
 		with open(file_path, "w", newline="", encoding="utf-8-sig") as csvfile:
 			fieldnames = ["tag", "id", "pwd", "port"]
+			if section == "rustdesk":
+				fieldnames.append("check_status")
 			writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 			writer.writeheader()
 			for client in clients:
@@ -23,6 +26,8 @@ def export_to_csv(section: str, file_path: str) -> tuple[bool, str]:
 					"pwd": client.get("pwd", ""),
 					"port": client.get("port", ""),
 				}
+				if section == "rustdesk":
+					row["check_status"] = "true" if status_check_enabled(client) else "false"
 				writer.writerow(row)
 		return True, str(len(clients))
 	except Exception as e:
@@ -42,6 +47,10 @@ def import_from_csv(section: str, file_path: str) -> tuple[bool, str]:
 					"pwd": row.get("pwd", "").strip(),
 					"port": row.get("port", "").strip(),
 				}
+				if section == "rustdesk":
+					client["check_status"] = status_check_enabled(
+						{"check_status": row.get("check_status", "true")}
+					)
 				if client["tag"] or client["id"]:
 					clients.append(client)
 

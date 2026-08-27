@@ -4,6 +4,7 @@ import threading
 import time
 
 from app.services.status_manager import StatusManager
+from app.utils.text import status_check_enabled
 
 
 def get_rustdesk_peer_ids(read_clients_from_json, normalize_client_fields) -> list[str]:
@@ -15,6 +16,8 @@ def get_rustdesk_peer_ids(read_clients_from_json, normalize_client_fields) -> li
 	peer_ids: list[str] = []
 	for c in clients:
 		try:
+			if not status_check_enabled(c):
+				continue
 			c = normalize_client_fields(c)
 			pid = str(c.get("id", "") or "").strip()
 		except Exception:
@@ -47,8 +50,9 @@ def restart_rustdesk_status_manager_from_config(
 		manager = StatusManager(
 			host,
 			api_port,
-			timeout_s=5,
-			interval_s=1,
+			timeout_s=3,
+			first_poll_timeout_s=3.0,
+			interval_s=10,
 			cache_grace_s=60,
 			admin_online_window_s=45,
 			status_change_confirm_polls=4,
@@ -81,6 +85,8 @@ def compute_client_status(
 
 	if section == "rustdesk":
 		try:
+			if not status_check_enabled(client):
+				return "error"
 			sm = rustdesk_status_manager
 			if sm is None:
 				return "error"
@@ -202,7 +208,7 @@ def refresh_status_once(
 		pass
 
 
-def start_status_refresh_loop(refresh_once, interval: int = 1):
+def start_status_refresh_loop(refresh_once, interval: float = 1.0):
 	"""Start daemon loop and periodically invoke refresh callback."""
 
 	def _loop():

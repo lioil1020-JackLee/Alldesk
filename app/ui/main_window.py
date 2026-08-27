@@ -29,6 +29,7 @@ from app.platform.win_window import send_unilink_to_flutter_runner as _send_unil
 from app.platform.win_window import send_unilink_via_copydata as _send_unilink_via_copydata
 from app.platform.win_window import try_uia_set_password as _try_uia_set_password
 from app.platform.win_window import wait_and_input_password as _wait_and_input_password
+from app.platform.win_window import try_focused_uia_password as _try_focused_uia_password
 from app.repositories import csv_repo, json_repo
 from app.services import status_service
 from app.security.des_compat import encrypt_tightvnc_password
@@ -364,6 +365,12 @@ def refresh_section_buttons(section: str, container, on_connect):
         anydesk=globals().get("anydesk"),
         tightvnc=globals().get("tightvnc"),
     )
+    if section == "rustdesk":
+        try:
+            if rustdesk_status_manager is not None:
+                rustdesk_status_manager.set_peer_ids(get_rustdesk_peer_ids())
+        except Exception:
+            pass
 
 
 gui = tk.Tk()
@@ -480,6 +487,7 @@ rustdesk = RustDesk(
     is_rustdesk_id_not_found_dialog_open=_is_rustdesk_id_not_found_dialog_open,
     is_rustdesk_connection_error_dialog_open=_is_rustdesk_connection_error_dialog_open,
     wait_and_input_password=_wait_and_input_password,
+	try_focused_uia_password=_try_focused_uia_password,
     close_window=_close_window,
     send_unilink_via_copydata=_send_unilink_via_copydata,
     try_uia_set_password=_try_uia_set_password,
@@ -567,7 +575,7 @@ def _refresh_status_once():
 
 
 def start_status_refresh_loop():
-    status_service.start_status_refresh_loop(_refresh_status_once, interval=1)
+    status_service.start_status_refresh_loop(_refresh_status_once, interval=0.5)
 
 
 # 移除編輯器功能，改為按鈕右鍵編輯
@@ -582,7 +590,7 @@ server_config = load_server_config()
 RUSTDESK_HOST = server_config.get("server", "")
 RUSTDESK_KEY = server_config.get("key", "")
 
-# RustDesk 狀態：background polling thread（每 15 秒打 /api/peers），結果只放記憶體快取
+# RustDesk status: background polling thread keeps API results in memory cache.
 _restart_rustdesk_status_manager_from_config()
 
 # 背景刷新客戶端上線狀態燈號（不阻塞 UI）

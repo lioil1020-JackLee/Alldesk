@@ -5,6 +5,8 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 
+from app.utils.text import status_check_enabled
+
 
 def show_client_context_menu(
 	event,
@@ -131,6 +133,23 @@ def edit_client_dialog(
 	port_entry.insert(0, client.get("port", ""))
 	port_entry.pack(side="left", fill="x", expand=True)
 
+	check_status_var = tk.BooleanVar(value=status_check_enabled(client))
+	if section == "rustdesk":
+		check_status_frame = tk.Frame(input_frame)
+		check_status_frame.pack(fill="x", pady=(8, 5))
+		tk.Label(
+			check_status_frame,
+			text="\u67e5\u8a62\u72c0\u614b:",
+			font=("Microsoft JhengHei UI", 11, "bold"),
+			width=12,
+			anchor="w",
+		).pack(side="left")
+		tk.Checkbutton(
+			check_status_frame,
+			text="\u555f\u7528",
+			variable=check_status_var,
+		).pack(side="left")
+
 	separator2 = ttk.Separator(dialog, orient="horizontal")
 	separator2.grid(row=3, column=0, columnspan=2, sticky="ew", padx=30, pady=(10, 20))
 
@@ -141,6 +160,8 @@ def edit_client_dialog(
 			"pwd": pwd_entry.get().strip(),
 			"port": port_entry.get().strip(),
 		}
+		if section == "rustdesk":
+			updated_client["check_status"] = bool(check_status_var.get())
 
 		if not updated_client["tag"] and not updated_client["id"]:
 			delete_client(section, client, container, on_connect)

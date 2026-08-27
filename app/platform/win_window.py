@@ -6,16 +6,32 @@ from urllib.parse import quote
 
 from app.platform.win_clipboard import (
 	paste_via_keyboard_and_enter,
+	send_enter_key,
 	set_clipboard_text,
 )
 
 try:
 	from pywinauto import Application as PywinautoApplication
+	from pywinauto import Desktop as PywinautoDesktop
+	from pywinauto.controls.uiawrapper import UIAWrapper
+	from pywinauto.uia_defines import IUIA
+	from pywinauto.uia_element_info import UIAElementInfo
 except Exception:
 	PywinautoApplication = None
+	PywinautoDesktop = None
+	UIAWrapper = None
+	IUIA = None
+	UIAElementInfo = None
 
 
-PASSWORD_KEYIN_DELAY_S = 0.2
+PASSWORD_KEYIN_DELAY_S = 0.05
+CONFIRM_BUTTON_KEYWORDS = (
+	"ok",
+	"confirm",
+	"continue",
+	"\u78ba\u5b9a",
+	"\u7e7c\u7e8c",
+)
 
 
 def build_unilink_for_id(target_id: str, password: str | None = None) -> str:
@@ -93,13 +109,20 @@ def find_window_for_id(target_id: str, timeout: float = 6.0, abort_if=None):
 	user32 = ctypes.windll.user32
 	WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
 	buf = ctypes.create_unicode_buffer(1024)
+	class_buf = ctypes.create_unicode_buffer(256)
 
 	def enum_proc(hwnd, lParam):
 		try:
 			if user32.IsWindowVisible(hwnd):
 				user32.GetWindowTextW(hwnd, buf, 1024)
 				title = buf.value or ""
-				if str(target_id) in title and "RustDesk" in title:
+				user32.GetClassNameW(hwnd, class_buf, 256)
+				class_name = class_buf.value or ""
+				if str(target_id) in title and (
+					"RustDesk" in title
+					or "@" in title
+					or class_name == "FLUTTER_RUNNER_WIN32_WINDOW"
+				):
 					found.append(hwnd)
 					return False
 		except Exception:
@@ -242,6 +265,15 @@ def find_password_dialog(timeout: float = 6.0):
 	user32 = ctypes.windll.user32
 	WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
 	buf = ctypes.create_unicode_buffer(1024)
+	password_keywords = [
+		"密碼", "需要密碼", "驗證 rustdesk 密碼", "輸入您的密碼",
+		"密码", "需要密码", "验证 rustdesk 密码", "输入您的密码",
+		"rustdesk 密碼", "rustdesk 密码", "rustdesk password",
+		"password", "enter password", "passwort", "passwort erforderlich",
+		"mot de passe", "entrez le mot de passe", "contraseña",
+		"introduzca la contraseña", "パスワード", "パスワード入力",
+		"비밀번호", "비밀번호 입력",
+	]
 
 	def enum_proc(hwnd, lParam):
 		try:
@@ -249,16 +281,25 @@ def find_password_dialog(timeout: float = 6.0):
 				return True
 			user32.GetWindowTextW(hwnd, buf, 1024)
 			title = (buf.value or "").strip()
-			if not title:
+			texts = [title] if title else []
+
+			def child_proc(ch, _):
+				try:
+					user32.GetWindowTextW(ch, buf, 1024)
+					t = (buf.value or "").strip()
+					if t:
+						texts.append(t)
+				except Exception:
+					pass
 				return True
-			low = title.lower()
-			password_keywords = [
-				"密碼", "需要密碼", "rustdesk 密碼", "password", "enter password",
-				"rustdesk password", "密码", "需要密码", "rustdesk 密码", "passwort",
-				"passwort erforderlich", "mot de passe", "entrez le mot de passe", "contraseña",
-				"introduzca la contraseña", "パスワード", "パスワード入力", "비밀번호", "비밀번호 입력",
-			]
-			if any(keyword in low for keyword in password_keywords):
+
+			try:
+				user32.EnumChildWindows(hwnd, WNDENUMPROC(child_proc), 0)
+			except Exception:
+				pass
+
+			merged = " ".join(texts).lower()
+			if any(keyword in merged for keyword in password_keywords):
 				found.append(hwnd)
 				return False
 		except Exception:
@@ -275,20 +316,165 @@ def find_password_dialog(timeout: float = 6.0):
 			pass
 		if found:
 			return found[0]
+		try:
+			if PywinautoDesktop is not None:
+				for win in PywinautoDesktop(backend="uia").windows():
+					try:
+						title = (win.window_text() or "").lower()
+						if not (
+							"rustdesk" in title
+							or "@" in title
+							or "密碼" in title
+							or "密码" in title
+							or "password" in title
+						):
+							continue
+						texts = [title]
+						try:
+							for child in win.descendants()[:120]:
+								name = (child.element_info.name or "").strip()
+								if name:
+									texts.append(name.lower())
+						except Exception:
+							pass
+						merged = " ".join(texts)
+						if any(keyword in merged for keyword in password_keywords):
+							try:
+								return int(win.handle)
+							except Exception:
+								return win.handle
+					except Exception:
+						continue
+		except Exception:
+			pass
 		time.sleep(0.12)
 	return None
 
 
+def _input_password_into_edit(edit, password: str, hwnd=None) -> bool:
+	try:
+		if hwnd:
+			try:
+				force_foreground(hwnd)
+			except Exception:
+				pass
+		try:
+			edit.set_focus()
+		except Exception:
+			pass
+		time.sleep(PASSWORD_KEYIN_DELAY_S)
+		try:
+			edit.set_edit_text(str(password))
+			edit.type_keys("{ENTER}")
+			send_enter_key(times=2, delay=0.05)
+			_click_confirm_button(hwnd)
+			return True
+		except Exception:
+			pass
+		try:
+			edit.type_keys("^a{BACKSPACE}")
+		except Exception:
+			pass
+		if set_clipboard_text(str(password)):
+			time.sleep(0.08)
+			if paste_via_keyboard_and_enter():
+				return True
+		def _escape_for_type_keys(s: str) -> str:
+			special = set("^%+~{}()[]")
+			out = []
+			for ch in s:
+				out.append("{" + ch + "}" if ch in special else ch)
+			return "".join(out)
+		edit.type_keys(
+			_escape_for_type_keys(str(password)),
+			with_spaces=True,
+			set_foreground=True,
+		)
+		edit.type_keys("{ENTER}")
+		send_enter_key(times=2, delay=0.05)
+		_click_confirm_button(hwnd)
+		return True
+	except Exception:
+		return False
+
+
+def _click_confirm_button(hwnd=None) -> bool:
+	try:
+		if PywinautoApplication is not None and hwnd:
+			app = PywinautoApplication(backend="uia").connect(handle=hwnd)
+			dlg = app.window(handle=hwnd)
+			for button in dlg.descendants(control_type="Button"):
+				try:
+					name = (button.element_info.name or button.window_text() or "").strip()
+					if any(k in name.lower() for k in CONFIRM_BUTTON_KEYWORDS):
+						button.click_input()
+						return True
+				except Exception:
+					continue
+	except Exception:
+		pass
+	try:
+		if PywinautoDesktop is not None:
+			for win in PywinautoDesktop(backend="uia").windows():
+				try:
+					title = (win.window_text() or "").lower()
+					if "rustdesk" not in title and "@" not in title:
+						continue
+					for button in win.descendants(control_type="Button"):
+						try:
+							name = (button.element_info.name or button.window_text() or "").strip()
+							if any(k in name.lower() for k in CONFIRM_BUTTON_KEYWORDS):
+								button.click_input()
+								return True
+						except Exception:
+							continue
+				except Exception:
+					continue
+	except Exception:
+		pass
+	return False
+
+
+def try_focused_uia_password(password: str) -> tuple[bool, bool]:
+	"""Fill the currently focused password edit without scanning the UIA tree."""
+	if IUIA is None or UIAElementInfo is None or UIAWrapper is None:
+		return False, False
+	try:
+		element = IUIA().iuia.GetFocusedElement()
+		if not element:
+			return False, False
+		info = UIAElementInfo(element)
+		control_type = (info.control_type or "").strip().lower()
+		name = (info.name or "").strip().lower()
+		is_password = bool(getattr(info, "is_password", False))
+		password_names = (
+			"password",
+			"passwort",
+			"mot de passe",
+			"contraseña",
+			"密碼",
+			"密码",
+		)
+		if control_type != "edit" and not is_password:
+			return False, False
+		if not is_password and name and not any(word in name for word in password_names):
+			return False, False
+		wrapper = UIAWrapper(info)
+		return _input_password_into_edit(wrapper, str(password)), True
+	except Exception:
+		return False, False
+
+
 def wait_and_input_password(password: str, max_wait_time: float = 5.0) -> tuple[bool, bool]:
 	start_time = time.time()
-	check_interval = 0.3
+	check_interval = 0.02
 	last_attempt_time = 0
-	attempt_cooldown = 2.0
+	attempt_cooldown = 0.08
 	saw_password_dialog = False
 
 	while time.time() - start_time < max_wait_time:
 		current_time = time.time()
-		pwd_hwnd = find_password_dialog(timeout=0.5)
+		pwd_hwnd = find_password_dialog(timeout=0.05)
 		if pwd_hwnd:
 			saw_password_dialog = True
 			if current_time - last_attempt_time < attempt_cooldown:
@@ -297,18 +483,25 @@ def wait_and_input_password(password: str, max_wait_time: float = 5.0) -> tuple[
 
 			try:
 				force_foreground(pwd_hwnd)
-				time.sleep(0.1)
 
 				if try_uia_set_password(pwd_hwnd, password):
 					return True, True
 
 				if set_clipboard_text(password):
-					time.sleep(0.15)
+					time.sleep(0.05)
 					if paste_via_keyboard_and_enter():
 						return True, True
 			except Exception:
 				pass
 
+			last_attempt_time = current_time
+
+		elif saw_password_dialog and current_time - last_attempt_time >= attempt_cooldown:
+			try:
+				if try_uia_set_password(0, password):
+					return True, True
+			except Exception:
+				pass
 			last_attempt_time = current_time
 
 		time.sleep(check_interval)
@@ -367,50 +560,47 @@ def send_unilink_via_copydata(hwnd_target, uni_link: str) -> bool:
 
 def try_uia_set_password(hwnd, password: str) -> bool:
 	try:
-		if PywinautoApplication is None:
-			return False
-		app = PywinautoApplication(backend="uia").connect(handle=hwnd)
-		dlg = app.window(handle=hwnd)
-
-		def _escape_for_type_keys(s: str) -> str:
-			special = set("^%+~{}()[]")
-			out = []
-			for ch in s:
-				if ch in special:
-					out.append("{" + ch + "}")
-				else:
-					out.append(ch)
-			return "".join(out)
-
-		escaped = _escape_for_type_keys(password)
-		try:
-			pw_edit = dlg.child_window(control_type="Edit")
-			pw_edit.set_focus()
-			time.sleep(PASSWORD_KEYIN_DELAY_S)
-			pw_edit.type_keys(escaped, with_spaces=True, set_foreground=True)
-			pw_edit.type_keys("{ENTER}")
-			return True
-		except Exception:
+		if hwnd and PywinautoApplication is not None:
+			app = PywinautoApplication(backend="uia").connect(handle=hwnd)
+			dlg = app.window(handle=hwnd)
 			try:
-				edits = dlg.descendants(control_type="Edit")
-				if edits:
-					edits[0].set_focus()
-					time.sleep(PASSWORD_KEYIN_DELAY_S)
-					edits[0].type_keys(escaped, with_spaces=True, set_foreground=True)
-					edits[0].type_keys("{ENTER}")
+				pw_edit = dlg.child_window(control_type="Edit")
+				if _input_password_into_edit(pw_edit, password, hwnd):
 					return True
 			except Exception:
+				pass
+			try:
+				edits = dlg.descendants(control_type="Edit")
+				for edit in edits:
+					if _input_password_into_edit(edit, password, hwnd):
+						return True
+			except Exception:
+				pass
+		try:
+			if PywinautoDesktop is not None:
+				for win in PywinautoDesktop(backend="uia").windows():
+					try:
+						title = (win.window_text() or "").lower()
+						if "rustdesk" not in title and "@" not in title:
+							continue
+						for edit in win.descendants(control_type="Edit"):
+							if _input_password_into_edit(edit, password, win.handle):
+								return True
+					except Exception:
+						continue
+		except Exception:
+			pass
+		try:
+			if set_clipboard_text(password):
 				try:
-					if set_clipboard_text(password):
-						try:
-							force_foreground(hwnd)
-						except Exception:
-							pass
-						time.sleep(0.12)
-						if paste_via_keyboard_and_enter():
-							return True
+					force_foreground(hwnd)
 				except Exception:
-					return False
+					pass
+				time.sleep(0.12)
+				if paste_via_keyboard_and_enter():
+					return True
+		except Exception:
+			return False
 	except Exception:
 		return False
 
