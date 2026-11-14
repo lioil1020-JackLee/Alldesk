@@ -14,22 +14,15 @@ from tkinter import font as tkfont
 from tkinter import ttk
 from tkinter import messagebox
 
-from app.platform.win_clipboard import (
-    paste_via_keyboard_and_enter as _paste_via_keyboard_and_enter,
-)
-from app.platform.win_clipboard import set_clipboard_text as _set_clipboard_text
 from app.platform.win_process import launch_process
 from app.platform.win_window import build_unilink_for_id as _build_unilink_for_id
-from app.platform.win_window import close_window as _close_window
 from app.platform.win_window import find_window_for_id as _find_window_for_id
 from app.platform.win_window import force_foreground as _force_foreground
 from app.platform.win_window import is_rustdesk_connection_error_dialog_open as _is_rustdesk_connection_error_dialog_open
 from app.platform.win_window import is_rustdesk_id_not_found_dialog_open as _is_rustdesk_id_not_found_dialog_open
 from app.platform.win_window import send_unilink_to_flutter_runner as _send_unilink_to_flutter_runner
 from app.platform.win_window import send_unilink_via_copydata as _send_unilink_via_copydata
-from app.platform.win_window import try_uia_set_password as _try_uia_set_password
-from app.platform.win_window import wait_and_input_password as _wait_and_input_password
-from app.platform.win_window import try_focused_uia_password as _try_focused_uia_password
+from app.platform.rustdesk_dialogs import try_connection_dialog
 from app.repositories import csv_repo, json_repo
 from app.services import status_service
 from app.security.des_compat import encrypt_tightvnc_password
@@ -486,13 +479,8 @@ rustdesk = RustDesk(
     find_window_for_id=_find_window_for_id,
     is_rustdesk_id_not_found_dialog_open=_is_rustdesk_id_not_found_dialog_open,
     is_rustdesk_connection_error_dialog_open=_is_rustdesk_connection_error_dialog_open,
-    wait_and_input_password=_wait_and_input_password,
-	try_focused_uia_password=_try_focused_uia_password,
-    close_window=_close_window,
+    try_connection_dialog=try_connection_dialog,
     send_unilink_via_copydata=_send_unilink_via_copydata,
-    try_uia_set_password=_try_uia_set_password,
-    set_clipboard_text=_set_clipboard_text,
-    paste_via_keyboard_and_enter=_paste_via_keyboard_and_enter,
     force_foreground=_force_foreground,
 )
 rustdesk.set_elements_rustdesk()

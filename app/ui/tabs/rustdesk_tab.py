@@ -36,13 +36,8 @@ class RustDesk:
 		find_window_for_id,
 		is_rustdesk_id_not_found_dialog_open,
 		is_rustdesk_connection_error_dialog_open,
-		wait_and_input_password,
-		try_focused_uia_password,
-		close_window,
+		try_connection_dialog,
 		send_unilink_via_copydata,
-		try_uia_set_password,
-		set_clipboard_text,
-		paste_via_keyboard_and_enter,
 		force_foreground,
 	):
 		self._rustdesk_app = rustdesk_app
@@ -65,13 +60,8 @@ class RustDesk:
 		self._is_rustdesk_connection_error_dialog_open = (
 			is_rustdesk_connection_error_dialog_open
 		)
-		self._wait_and_input_password = wait_and_input_password
-		self._try_focused_uia_password = try_focused_uia_password
-		self._close_window = close_window
+		self._try_connection_dialog = try_connection_dialog
 		self._send_unilink_via_copydata = send_unilink_via_copydata
-		self._try_uia_set_password = try_uia_set_password
-		self._set_clipboard_text = set_clipboard_text
-		self._paste_via_keyboard_and_enter = paste_via_keyboard_and_enter
 		self._force_foreground = force_foreground
 		self._password_watcher_stop = None
 		self._password_watcher_lock = threading.Lock()
@@ -273,18 +263,6 @@ class RustDesk:
 		except Exception:
 			return self.run_rustdesk(client_id, password)
 
-	def _foreground_title_for_client(self, client_id: str) -> str:
-		try:
-			user32 = ctypes.windll.user32
-			hwnd = user32.GetForegroundWindow()
-			if not hwnd:
-				return ""
-			buf = ctypes.create_unicode_buffer(1024)
-			user32.GetWindowTextW(hwnd, buf, 1024)
-			return (buf.value or "").strip()
-		except Exception:
-			return ""
-
 	def _start_password_input_watcher(
 		self,
 		client_id: str,
@@ -300,54 +278,41 @@ class RustDesk:
 		except Exception:
 			stop_event = threading.Event()
 
-		result = {"ok": False, "saw": False}
+		result = {"ok": False, "saw": False, "continued": False, "done": False}
 
 		def _worker():
-			start_time = time.time()
-			deadline = time.time() + max_wait_time
-			last_slow_fallback = 0.0
+			deadline = time.monotonic() + max_wait_time
+			com_initialized = False
 			try:
-				while not stop_event.is_set() and time.time() < deadline:
-					now = time.time()
-					title = self._foreground_title_for_client(client_id)
-					if str(client_id).strip() in title:
-						try:
-							ok, saw = self._try_focused_uia_password(str(password))
-							if saw:
-								result["saw"] = True
-							if ok:
-								result["ok"] = True
-								break
-						except Exception:
-							pass
+				try:
+					import comtypes
+					comtypes.CoInitializeEx(0)
+					com_initialized = True
+				except Exception:
+					pass
+				while not stop_event.is_set() and time.monotonic() < deadline:
 					try:
-						if (
-							self._is_rustdesk_id_not_found_dialog_open()
-							or self._is_rustdesk_connection_error_dialog_open()
-						):
+						state = self._try_connection_dialog(
+							str(client_id), str(password), allow_continue=not result["continued"]
+						)
+						if state == "continued":
+							result["continued"] = True
+						if state in ("password", "submitted"):
+							result["saw"] = True
+						if state == "submitted":
+							result["ok"] = True
+							break
+						if state == "error":
 							break
 					except Exception:
 						pass
-
-					if (
-						now - start_time >= 2.0
-						and now - last_slow_fallback >= 1.0
-					):
-						last_slow_fallback = now
-						try:
-							ok, saw = self._wait_and_input_password(
-								str(password), max_wait_time=0.05
-							)
-							if saw:
-								result["saw"] = True
-							if ok:
-								result["ok"] = True
-								break
-						except Exception:
-							pass
-
-					stop_event.wait(0.03)
+					# Check the password prompt immediately after Continue, including
+					# when the user dismissed the warning manually.
+					stop_event.wait(0.05)
 			finally:
+				result["done"] = True
+				if com_initialized:
+					comtypes.CoUninitialize()
 				try:
 					with self._password_watcher_lock:
 						if self._password_watcher_stop is stop_event:
@@ -365,8 +330,8 @@ class RustDesk:
 		deadline = time.time() + max_wait_time
 		while time.time() < deadline:
 			try:
-				if result.get("ok"):
-					return True, bool(result.get("saw"))
+				if result.get("ok") or result.get("done"):
+					return bool(result.get("ok")), bool(result.get("saw"))
 			except Exception:
 				pass
 			time.sleep(0.05)
@@ -375,7 +340,7 @@ class RustDesk:
 		except Exception:
 			return False, False
 
-	def run_rustdesk(self, client_id, password, _retried_no_password_dialog: bool = False):
+	def run_rustdesk(self, client_id, password):
 		exec_target = self.exec_target
 
 		try:
@@ -580,31 +545,8 @@ class RustDesk:
 				if password_ok:
 					return True
 
-				if (not saw_pwd_dialog) and (not _retried_no_password_dialog):
-					try:
-						self._close_window(hwnd)
-					except Exception:
-						pass
-					time.sleep(0.2)
-					return self.run_rustdesk(
-						client_id,
-						password,
-						_retried_no_password_dialog=True,
-					)
-
-				try:
-					if self._try_uia_set_password(hwnd, str(password)):
-						return True
-				except Exception:
-					pass
-
-				try:
-					if self._set_clipboard_text(str(password)):
-						time.sleep(0.12)
-						if self._paste_via_keyboard_and_enter():
-							return True
-				except Exception:
-					pass
+				# The scoped watcher remains active. Never paste blindly or close
+				# an established session just because it did not ask for a password.
 				return True
 		except Exception:
 			pass

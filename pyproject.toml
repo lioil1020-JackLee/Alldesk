@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "alldesk"
-version = "0.1.0"
+version = "1.0.3"
 description = "Windows GUI launcher for RustDesk, AnyDesk, and TightVNC"
 readme = "README.md"
 requires-python = ">=3.12"

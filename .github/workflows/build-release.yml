@@ -36,6 +36,10 @@ jobs:
       - name: Sync project
         run: uv sync --locked --group dev
 
+      - name: Test Windows connection handling
+        if: runner.os == 'Windows'
+        run: uv run python -m unittest discover -s tests -v
+
       - name: Build on Windows
         if: matrix.os == 'windows-latest'
         shell: pwsh
